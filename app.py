@@ -1,52 +1,46 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Hatasız Planlayıcı", layout="centered")
+st.set_page_config(page_title="Plan Rehberim", layout="centered")
 st.title("📅 Günlük Plan Notlarım")
 
-def veri_cek():
+@st.cache_data(ttl=1) # Hafızayı her saniye tazeler
+def veri_yukle():
     try:
-        # Excel'in içindeki TÜM sayfaları listele
-        excel = pd.ExcelFile("plan.xlsx")
-        # İlk sayfayı al
-        df = excel.parse(excel.sheet_names[0], header=None)
+        # Excel'i her şeyi metin (str) olarak oku
+        df = pd.read_excel("plan.xlsx", dtype=str)
         
-        # Tamamen boş satır ve sütunları temizle
-        df = df.dropna(how='all').dropna(axis=1, how='all')
+        # Sütunları zorla eşle
+        df.columns = ['Tarih', 'Not'] + list(df.columns[2:])
         
-        # Eğer ilk satır başlık (Tarih, Not vb.) ise onu temizle
-        if "tarih" in str(df.iloc[0, 0]).lower():
-            df = df.iloc[1:]
-            
-        # İlk iki sütunu al
-        df = df.iloc[:, :2]
-        df.columns = ['Tarih', 'Not']
+        # Boş olanları ve başlık satırını temizle
+        df = df[df['Tarih'].notna()]
+        df = df[df['Tarih'].str.lower() != 'tarih']
         
-        # Her şeyi metne çevir
-        df['Tarih'] = df['Tarih'].astype(str).str.split(' ').str[0].str.strip()
-        df['Not'] = df['Not'].astype(str).str.strip()
-        
-        # 'nan' (boş) olanları listeden at
-        df = df[df['Tarih'] != 'nan']
+        # Excel'in arkada eklediği saat (00:00:00) yazılarını temizle
+        df['Tarih'] = df['Tarih'].str.split(' ').str[0].str.strip()
         
         return df
     except Exception as e:
+        st.error(f"Hata oluştu: {e}")
         return None
 
-df = veri_cek()
+df = veri_yukle()
 
 if df is not None and not df.empty:
-    tarih_listesi = df['Tarih'].unique().tolist()
+    # İşte burası önemli: Bütün tarihleri olduğu gibi listeye alıyoruz
+    tarih_listesi = df['Tarih'].tolist()
     
-    st.success(f"✅ Excel başarıyla okundu! {len(tarih_listesi)} tarih bulundu.")
+    st.write(f"Sistemde toplam {len(tarih_listesi)} kayıt bulundu.")
     
-    secilen = st.selectbox("Bir Tarih Seçin:", tarih_listesi)
-    
-    if secilen:
-        not_metni = df[df['Tarih'] == secilen].iloc[0]['Not']
+    # Listeyi göster
+    secilen_tarih = st.selectbox("Lütfen bir tarih seçin:", tarih_listesi)
+
+    if secilen_tarih:
+        # Seçilen tarihin tam karşısındaki notu göster
+        not_icerigi = df[df['Tarih'] == secilen_tarih].iloc[0]['Not']
         st.divider()
-        st.subheader(f"📌 {secilen} Notu:")
-        st.info(not_metni)
+        st.subheader(f"📌 Notunuz:")
+        st.info(not_icerigi)
 else:
-    st.error("⚠️ Excel'in içindeki veriye ulaşılamıyor.")
-    st.info("İpucu: Excel'deki verilerinizin en üst sol köşeden (A1 hücresi) başladığından emin olun.")
+    st.error("Excel verisi okunamadı.")
