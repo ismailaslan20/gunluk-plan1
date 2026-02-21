@@ -7,51 +7,42 @@ st.title("📅 Günlük Plan Notlarım")
 @st.cache_data
 def veri_yukle():
     try:
-        # Excel'i en saf haliyle oku (başlıkları biz belirleyeceğiz)
+        # Excel'i en ham haliyle oku
         df = pd.read_excel("plan.xlsx", header=None)
         
-        # Tamamen boş satırları temizle
-        df = df.dropna(how='all')
+        # Tamamen boş satırları ve sütunları temizle
+        df = df.dropna(how='all').dropna(axis=1, how='all')
         
-        # Eğer ilk satırda 'Tarih' veya 'Not' yazıyorsa o satırı atla
-        if str(df.iloc[0, 0]).strip().lower() in ['tarih', 'tarıh', 'date']:
-            df = df.iloc[1:]
-            
-        # Sadece ilk iki sütunu al ve isim ver
+        # İlk iki sütunu al, isimleri biz verelim
         df = df.iloc[:, :2]
         df.columns = ['Tarih', 'Not']
         
-        # Kritik Hamle: Her şeyi zorla metne çevir ve boşlukları sil
-        df['Tarih'] = df['Tarih'].astype(str).str.replace('.0', '', regex=False).str.strip()
-        df['Not'] = df['Not'].astype(str).str.strip()
-        
-        # Boş olanları (nan) temizle
+        # Her şeyi metne çevir ve 'nan' (boş) yazanları temizle
+        df = df.astype(str)
         df = df[df['Tarih'] != 'nan']
         
+        # Eğer ilk satırda 'Tarih' kelimesi kalmışsa onu çıkar
+        if "tarih" in df.iloc[0, 0].lower():
+            df = df.iloc[1:]
+            
         return df
     except Exception as e:
-        st.error(f"Dosya okuma hatası: {e}")
         return None
 
 df = veri_yukle()
 
 if df is not None and not df.empty:
-    st.write("Notunu görmek istediğiniz günü seçin:")
+    st.write("Bilgi notunu görmek istediğiniz günü seçin:")
     
-    # Tarihleri bir listeye al
-    tarih_listesi = df['Tarih'].tolist()
-    
+    # Tarihleri listele
+    tarih_listesi = df['Tarih'].unique().tolist()
     secilen_tarih = st.selectbox("Tarih Listesi:", tarih_listesi)
 
     if secilen_tarih:
         # Seçilen tarihin notunu göster
         not_icerigi = df[df['Tarih'] == secilen_tarih]['Not'].values[0]
         st.divider()
-        st.subheader(f"📌 {secilen_tarih} Tarihli Not:")
-        
-        if not_icerigi == 'nan' or not_icerigi == '':
-            st.warning("Bu tarih için bir not girilmemiş.")
-        else:
-            st.info(not_icerigi)
+        st.subheader(f"📌 Notunuz:")
+        st.info(not_icerigi)
 else:
-    st.warning("Excel dosyasında okunabilir veri bulunamadı. Lütfen plan.xlsx dosyasını kontrol edin.")
+    st.error("Excel verisi hala okunamıyor. Lütfen plan.xlsx dosyasının İLK SAYFASINDA veri olduğundan emin olun.")
