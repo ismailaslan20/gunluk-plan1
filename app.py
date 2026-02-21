@@ -7,21 +7,25 @@ st.title("📅 Günlük Plan Notlarım")
 @st.cache_data
 def veri_yukle():
     try:
-        # Excel'i oku (Hangi sütun neyse ona bakmaksızın)
-        df = pd.read_excel("plan.xlsx", dtype=str) # Her şeyi metin olarak oku ki hata çıkmasın
+        # Excel'i her şeyi metin (string) olarak oku
+        df = pd.read_excel("plan.xlsx", dtype=str)
         
-        # İlk iki sütunu al
-        df = df.iloc[:, :2]
-        df.columns = ['Tarih', 'Not']
+        # Sütun isimleri ne olursa olsun, ilk sütunu 'Tarih', ikinciyi 'Not' yap
+        df.columns = ['Tarih', 'Not'] + list(df.columns[2:])
         
-        # Boş satırları temizle
+        # İlk satırda yanlışlıkla 'Tarih' veya 'Not' yazıyorsa o satırı atla
+        if df.iloc[0, 0].strip().lower() in ['tarih', 'tarıh', 'date']:
+            df = df.iloc[1:]
+        
+        # Boş olan satırları temizle
         df = df.dropna(subset=['Tarih'])
         
-        # Tarih formatını temizle (Excel'in eklediği saatleri vs. siler)
+        # Tarih formatındaki gereksiz saat kısımlarını temizle
         df['Tarih'] = df['Tarih'].str.replace(' 00:00:00', '', regex=False).str.strip()
         
         return df
     except Exception as e:
+        st.error(f"Teknik bir hata oluştu: {e}")
         return None
 
 df = veri_yukle()
@@ -36,9 +40,9 @@ if df is not None and not df.empty:
 
     if secilen_tarih:
         # Seçilen tarihin notunu getir
-        not_icerigi = df[df['Tarih'] == secilen_tarih]['Not'].values[0]
+        satir = df[df['Tarih'] == secilen_tarih].iloc[0]
         st.divider()
         st.subheader(f"📌 {secilen_tarih} Tarihli Notunuz:")
-        st.info(not_icerigi)
+        st.info(satir['Not'])
 else:
-    st.error("Excel verisi hala okunamıyor. Lütfen GitHub'da 'plan.xlsx' dosyasının içeriğinden emin olun.")
+    st.error("Excel verisi okunurken bir sorun oluştu. Lütfen GitHub'daki 'plan.xlsx' dosyasının doğru yüklendiğinden emin olun.")
