@@ -1,25 +1,24 @@
 import streamlit as st
 import pandas as pd
 
-# Sayfa tasarımı
 st.set_page_config(page_title="Plan Rehberim", layout="centered")
 st.title("📅 Günlük Plan Notlarım")
 
 @st.cache_data
 def veri_yukle():
     try:
-        # Excel'i oku
-        df = pd.read_excel("plan.xlsx")
+        # Excel'i oku (Hangi sütun neyse ona bakmaksızın)
+        df = pd.read_excel("plan.xlsx", dtype=str) # Her şeyi metin olarak oku ki hata çıkmasın
         
-        # İlk iki sütunu al ve isimlerini ne yazarsan yaz kabul et
+        # İlk iki sütunu al
         df = df.iloc[:, :2]
         df.columns = ['Tarih', 'Not']
         
-        # Boş olan satırları tamamen temizle
+        # Boş satırları temizle
         df = df.dropna(subset=['Tarih'])
         
-        # Tarih sütununu düz yazıya (metne) çevir (Format hatasını engeller)
-        df['Tarih_Gosterim'] = df['Tarih'].astype(str).str.split(' ').str[0]
+        # Tarih formatını temizle (Excel'in eklediği saatleri vs. siler)
+        df['Tarih'] = df['Tarih'].str.replace(' 00:00:00', '', regex=False).str.strip()
         
         return df
     except Exception as e:
@@ -30,16 +29,16 @@ df = veri_yukle()
 if df is not None and not df.empty:
     st.write("Bilgi notunu görmek istediğiniz günü seçin:")
     
-    # Tüm tarihleri benzersiz bir liste olarak al
-    tarih_listesi = df['Tarih_Gosterim'].unique().tolist()
+    # Tüm tarihleri listele
+    tarih_listesi = df['Tarih'].unique().tolist()
     
     secilen_tarih = st.selectbox("Tarih Seçiniz:", tarih_listesi)
 
     if secilen_tarih:
-        # Seçilen tarihin karşısındaki notu göster
-        satir = df[df['Tarih_Gosterim'] == secilen_tarih].iloc[0]
+        # Seçilen tarihin notunu getir
+        not_icerigi = df[df['Tarih'] == secilen_tarih]['Not'].values[0]
         st.divider()
-        st.subheader(f"📌 Notunuz:")
-        st.info(satir['Not'])
+        st.subheader(f"📌 {secilen_tarih} Tarihli Notunuz:")
+        st.info(not_icerigi)
 else:
-    st.error("Excel dosyası okunamadı veya içi boş. Lütfen 'plan.xlsx' dosyasını kontrol edin.")
+    st.error("Excel verisi hala okunamıyor. Lütfen GitHub'da 'plan.xlsx' dosyasının içeriğinden emin olun.")
