@@ -7,17 +7,22 @@ st.title("📅 Günlük Plan Notlarım")
 @st.cache_data
 def veri_yukle():
     try:
-        # Excel'i oku
-        df = pd.read_excel("plan.xlsx")
+        # Excel'i oku (Başlıkları otomatik tanımaya çalışma, direkt ilk satırı veri al)
+        df = pd.read_excel("plan.xlsx", header=None)
         
-        # Sütunları zorla isimle çağır (1. Sütun Tarih, 2. Sütun Not)
-        df.columns = ['Tarih', 'Not'] + list(df.columns[2:])
+        # Eğer ilk satırda 'Tarih' veya 'TARİH' yazıyorsa o satırı atla
+        if str(df.iloc[0, 0]).strip().lower() in ['tarih', 'tarıh']:
+            df = df.iloc[1:]
+            
+        # İlk sütunu Tarih, ikinciyi Not yap
+        df.columns = ['Tarih', 'Not'] + list(range(2, len(df.columns)))
         
         # Boş satırları temizle
         df = df.dropna(subset=['Tarih'])
         
-        # Tarih sütununda ne varsa (sayı, metin, tarih) hepsini düz yazıya çevir
-        df['Tarih'] = df['Tarih'].astype(str).str.replace('.0', '', regex=False)
+        # Her şeyi düz metne çevir ki format hatası vermesin
+        df['Tarih'] = df['Tarih'].astype(str).str.strip().str.replace('.0', '', regex=False)
+        df['Not'] = df['Not'].astype(str).str.strip()
         
         return df
     except Exception as e:
@@ -25,21 +30,20 @@ def veri_yukle():
 
 df = veri_yukle()
 
-if df is not None:
-    # Tarihleri listeye al
+if df is not None and not df.empty:
     tarih_listesi = df['Tarih'].tolist()
     
-    if not tarih_listesi:
-        st.warning("Excel dosyasının içi boş görünüyor. Lütfen A sütununa tarihleri ekleyin.")
-    else:
-        st.write("Bilgi notunu görmek istediğiniz günü seçin:")
-        secilen_tarih = st.selectbox("Tarih Listesi:", tarih_listesi)
+    st.write("Bakmak istediğiniz günü seçin:")
+    secilen_tarih = st.selectbox("Tarih Listesi:", tarih_listesi)
 
-        if secilen_tarih:
-            # Seçilen tarihin karşısındaki notu göster
-            not_icerigi = df[df['Tarih'] == secilen_tarih].iloc[0, 1]
-            st.divider()
-            st.subheader(f"📌 Notunuz:")
+    if secilen_tarih:
+        # Seçilen tarihin yanındaki notu çek
+        not_icerigi = df[df['Tarih'] == secilen_tarih].iloc[0, 1]
+        st.divider()
+        st.subheader(f"📌 Notunuz:")
+        if not_icerigi == "nan":
+            st.warning("Bu tarih için bir not girilmemiş.")
+        else:
             st.info(not_icerigi)
 else:
-    st.error("Excel dosyası bulunamadı. Lütfen GitHub'da dosya adının 'plan.xlsx' olduğundan emin olun.")
+    st.error("Excel dosyasında veri bulunamadı. Lütfen plan.xlsx dosyasının ilk sayfasında verileriniz olduğundan emin olun.")
