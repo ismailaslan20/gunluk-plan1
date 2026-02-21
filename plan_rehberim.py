@@ -11,23 +11,16 @@ def veri_yukle():
     dosya_yolu = os.path.join(base_dir, "plan.xlsx")
 
     if not os.path.exists(dosya_yolu):
-        st.error(f"❌ 'plan.xlsx' bulunamadı: {dosya_yolu}")
+        st.error("❌ 'plan.xlsx' bulunamadı.")
         return None
 
     try:
         df = pd.read_excel(dosya_yolu)
-
-        if df.shape[1] < 2:
-            st.error("❌ Excel dosyasında en az 2 sütun olmalıdır.")
-            return None
-
-        sutunlar = ['Tarih', 'Not'] + [f"Sutun_{i}" for i in range(2, df.shape[1])]
-        df.columns = sutunlar
-
+        df.columns = ['Sinif', 'Tarih', 'Not'] + [f"Sutun_{i}" for i in range(3, df.shape[1])]
         df = df.dropna(how='all')
         df = df[df['Tarih'].notna()]
+        df = df[df['Sinif'].notna()]
 
-        # Tarihi stringe çevir
         def tarihe_cevir(t):
             try:
                 return pd.to_datetime(t).strftime('%d.%m.%Y')
@@ -35,13 +28,8 @@ def veri_yukle():
                 return str(t).split(' ')[0].strip()
 
         df['Tarih'] = df['Tarih'].apply(tarihe_cevir)
-
-        # Artık string olduğu garantili, filtrele
-        df['Tarih'] = df['Tarih'].astype(str)
-        df = df[df['Tarih'].str.strip() != '']
-        df = df[df['Tarih'].str.strip() != 'nan']
+        df['Sinif'] = df['Sinif'].apply(lambda x: str(int(float(str(x)))) if str(x).replace('.','').isdigit() else str(x))
         df = df[df['Tarih'].str.lower().str.strip() != 'tarih']
-
         df['Not'] = df['Not'].fillna('(Not girilmemiş)').astype(str)
         df = df.reset_index(drop=True)
         return df
@@ -56,19 +44,26 @@ def veri_yukle():
 df = veri_yukle()
 
 if df is not None and not df.empty:
-    tarih_listesi = df['Tarih'].tolist()
-    st.success(f"✅ Sistemde toplam {len(tarih_listesi)} kayıt bulundu.")
+    sinif_listesi = sorted(df['Sinif'].unique().tolist(), key=lambda x: int(x) if x.isdigit() else x)
 
-    secilen_tarih = st.selectbox("Lütfen bir tarih seçin:", tarih_listesi)
+    st.subheader("🏫 Sınıf Seçin:")
+    secilen_sinif = st.selectbox("Sınıf:", sinif_listesi, label_visibility="collapsed")
 
-    if secilen_tarih:
-        eslesme = df[df['Tarih'] == secilen_tarih]
-        if not eslesme.empty:
-            not_icerigi = eslesme.iloc[0]['Not']
-            st.divider()
-            st.subheader("📌 Notunuz:")
-            st.info(not_icerigi)
-        else:
-            st.warning("Seçilen tarihe ait not bulunamadı.")
+    if secilen_sinif:
+        sinif_df = df[df['Sinif'] == secilen_sinif]
+        tarih_listesi = sinif_df['Tarih'].tolist()
+
+        st.subheader("📆 Tarih Seçin:")
+        secilen_tarih = st.selectbox("Tarih:", tarih_listesi, label_visibility="collapsed")
+
+        if secilen_tarih:
+            eslesme = sinif_df[sinif_df['Tarih'] == secilen_tarih]
+            if not eslesme.empty:
+                not_icerigi = eslesme.iloc[0]['Not']
+                st.divider()
+                st.subheader("📌 Notunuz:")
+                st.info(not_icerigi)
+            else:
+                st.warning("Seçilen tarihe ait not bulunamadı.")
 else:
     st.warning("⚠️ Excel verisi okunamadı veya dosya boş.")
