@@ -6,9 +6,13 @@ from datetime import date, timedelta
 st.set_page_config(page_title="Plan Rehberim", layout="centered")
 st.title("📅 Günlük Plan Notlarım")
 
-def bu_haftanin_pazartesisi():
+def aktif_pazartesi():
     bugun = date.today()
-    pazartesi = bugun - timedelta(days=bugun.weekday())
+    hafta_gunu = bugun.weekday()  # 0=Pazartesi, 5=Cumartesi, 6=Pazar
+    if hafta_gunu >= 5:  # Hafta sonu ise bir sonraki pazartesi
+        pazartesi = bugun + timedelta(days=(7 - hafta_gunu))
+    else:  # Hafta içi ise bu haftanın pazartesisi
+        pazartesi = bugun - timedelta(days=hafta_gunu)
     return pazartesi.strftime('%d.%m.%Y')
 
 @st.cache_data(ttl=1)
@@ -25,7 +29,6 @@ def veri_yukle():
         wb = openpyxl.load_workbook(dosya_yolu)
         ws = wb.active
 
-        # Birleştirilmiş hücreleri düzleştir
         merged_ranges = list(ws.merged_cells.ranges)
         for merged in merged_ranges:
             min_row, min_col, max_row, max_col = merged.min_row, merged.min_col, merged.max_row, merged.max_col
@@ -53,7 +56,7 @@ def veri_yukle():
         df['Tarih'] = df['Tarih'].apply(tarihe_cevir)
         df['Sinif'] = df['Sinif'].apply(lambda x: str(int(float(str(x)))) if str(x).replace('.','').isdigit() else str(x))
         df = df[df['Tarih'].astype(str).str.lower().str.strip() != 'tarih']
-        df['Not'] = df['Not'].fillna('(Not girilmemiş)').astype(str)
+        df['Not'] = df['Not'].fillna('').astype(str)
         df = df.reset_index(drop=True)
         return df
 
@@ -76,8 +79,7 @@ if df is not None and not df.empty:
         sinif_df = df[df['Sinif'] == secilen_sinif]
         tarih_listesi = sinif_df['Tarih'].tolist()
 
-        # Bu haftanın pazartesisini bul, listede varsa otomatik seç
-        bu_hafta = bu_haftanin_pazartesisi()
+        bu_hafta = aktif_pazartesi()
         if bu_hafta in tarih_listesi:
             default_index = tarih_listesi.index(bu_hafta)
         else:
@@ -92,9 +94,8 @@ if df is not None and not df.empty:
         )
 
         if secilen_tarih:
-            # Bu haftayı vurgula
             if secilen_tarih == bu_hafta:
-                st.caption("📍 Bu hafta otomatik seçildi")
+                st.caption("📍 Aktif hafta otomatik seçildi")
 
             eslesme = sinif_df[sinif_df['Tarih'] == secilen_tarih]
             if not eslesme.empty:
