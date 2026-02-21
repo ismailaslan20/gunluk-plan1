@@ -10,45 +10,42 @@ def veri_yukle():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     dosya_yolu = os.path.join(base_dir, "plan.xlsx")
 
-    st.write(f"Aranan yol: {dosya_yolu}")  # debug için
-
     if not os.path.exists(dosya_yolu):
-        st.error("❌ 'plan.xlsx' dosyası bulunamadı. Dosyanın bu script ile aynı klasörde olduğundan emin olun.")
+        st.error(f"❌ 'plan.xlsx' bulunamadı: {dosya_yolu}")
         return None
 
     try:
-        df = pd.read_excel(dosya_yolu, dtype=str)
+        # Tarihi otomatik olarak oku (datetime olarak gelir)
+        df = pd.read_excel(dosya_yolu)
 
-        # Sütun sayısı kontrolü
         if df.shape[1] < 2:
             st.error("❌ Excel dosyasında en az 2 sütun (Tarih, Not) olmalıdır.")
             return None
 
-        # İlk iki sütunu zorla adlandır
-        sutunlar = ['Tarih', 'Not'] + [f"Sütun_{i}" for i in range(2, df.shape[1])]
+        sutunlar = ['Tarih', 'Not'] + [f"Sutun_{i}" for i in range(2, df.shape[1])]
         df.columns = sutunlar
 
-        # Tamamen boş satırları at
         df = df.dropna(how='all')
-
-        # Tarih sütunu boş olanları at
         df = df[df['Tarih'].notna()]
-        df = df[df['Tarih'].str.strip() != '']
 
-        # Başlık satırı tekrar geldiyse temizle
+        # Tarih sütununu güvenli şekilde stringe çevir
+        def tarihe_cevir(t):
+            try:
+                return pd.to_datetime(t).strftime('%d.%m.%Y')
+            except:
+                return str(t).split(' ')[0].strip()
+
+        df['Tarih'] = df['Tarih'].apply(tarihe_cevir)
         df = df[df['Tarih'].str.lower().str.strip() != 'tarih']
-
-        # Excel'in eklediği saat bilgisini temizle (ör: "2024-01-01 00:00:00")
-        df['Tarih'] = df['Tarih'].str.split(' ').str[0].str.strip()
-
-        # Not sütunundaki NaN'leri boş string yap
-        df['Not'] = df['Not'].fillna('(Not girilmemiş)')
-
+        df = df[df['Tarih'].str.strip() != '']
+        df['Not'] = df['Not'].fillna('(Not girilmemiş)').astype(str)
         df = df.reset_index(drop=True)
         return df
 
     except Exception as e:
         st.error(f"❌ Hata oluştu: {e}")
+        import traceback
+        st.code(traceback.format_exc())
         return None
 
 
@@ -56,7 +53,6 @@ df = veri_yukle()
 
 if df is not None and not df.empty:
     tarih_listesi = df['Tarih'].tolist()
-
     st.success(f"✅ Sistemde toplam {len(tarih_listesi)} kayıt bulundu.")
 
     secilen_tarih = st.selectbox("Lütfen bir tarih seçin:", tarih_listesi)
