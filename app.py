@@ -7,25 +7,26 @@ st.title("📅 Günlük Plan Notlarım")
 @st.cache_data
 def veri_yukle():
     try:
-        # Excel'i her şeyi metin (string) olarak oku
-        df = pd.read_excel("plan.xlsx", dtype=str)
+        # Excel'i oku
+        df = pd.read_excel("plan.xlsx")
         
-        # Sütun isimleri ne olursa olsun, ilk sütunu 'Tarih', ikinciyi 'Not' yap
-        df.columns = ['Tarih', 'Not'] + list(df.columns[2:])
+        # İlk iki sütunu al ve isimlerini sabitle
+        df = df.iloc[:, :2]
+        df.columns = ['Tarih', 'Not']
         
-        # İlk satırda yanlışlıkla 'Tarih' veya 'Not' yazıyorsa o satırı atla
-        if df.iloc[0, 0].strip().lower() in ['tarih', 'tarıh', 'date']:
-            df = df.iloc[1:]
+        # Kritik Hamle: Önce her şeyi metne çevir, sonra temizle (Hatanın çözümü burada)
+        df['Tarih'] = df['Tarih'].astype(str).apply(lambda x: x.strip() if x != 'nan' else '')
+        df['Not'] = df['Not'].astype(str).apply(lambda x: x.strip() if x != 'nan' else '')
         
-        # Boş olan satırları temizle
-        df = df.dropna(subset=['Tarih'])
+        # Boş tarihli satırları temizle
+        df = df[df['Tarih'] != '']
         
-        # Tarih formatındaki gereksiz saat kısımlarını temizle
-        df['Tarih'] = df['Tarih'].str.replace(' 00:00:00', '', regex=False).str.strip()
+        # Excel'in eklediği gereksiz saat kısımlarını (00:00:00) temizle
+        df['Tarih'] = df['Tarih'].str.replace(' 00:00:00', '', regex=False)
         
         return df
     except Exception as e:
-        st.error(f"Teknik bir hata oluştu: {e}")
+        st.error(f"Veri yüklenirken bir sorun oldu: {e}")
         return None
 
 df = veri_yukle()
@@ -33,16 +34,17 @@ df = veri_yukle()
 if df is not None and not df.empty:
     st.write("Bilgi notunu görmek istediğiniz günü seçin:")
     
-    # Tüm tarihleri listele
     tarih_listesi = df['Tarih'].unique().tolist()
-    
     secilen_tarih = st.selectbox("Tarih Seçiniz:", tarih_listesi)
 
     if secilen_tarih:
-        # Seçilen tarihin notunu getir
-        satir = df[df['Tarih'] == secilen_tarih].iloc[0]
+        # Seçilen tarihin notunu güvenle getir
+        not_icerigi = df[df['Tarih'] == secilen_tarih]['Not'].values[0]
         st.divider()
         st.subheader(f"📌 {secilen_tarih} Tarihli Notunuz:")
-        st.info(satir['Not'])
+        if not_icerigi == "" or not_icerigi == "nan":
+            st.warning("Bu tarih için bir not girilmemiş.")
+        else:
+            st.info(not_icerigi)
 else:
-    st.error("Excel verisi okunurken bir sorun oluştu. Lütfen GitHub'daki 'plan.xlsx' dosyasının doğru yüklendiğinden emin olun.")
+    st.info("Henüz görüntülenecek bir veri bulunamadı. Lütfen Excel dosyanızı kontrol edin.")
