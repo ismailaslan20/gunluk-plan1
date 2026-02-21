@@ -4,7 +4,7 @@ import os
 from datetime import date, timedelta
 
 st.set_page_config(page_title="Plan Rehberim", layout="centered")
-st.title("📅 Günlük Plan Notlarım")
+st.markdown("#### 📅 Günlük Plan Notlarım")
 
 def aktif_pazartesi():
     bugun = date.today()
