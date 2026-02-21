@@ -1,9 +1,15 @@
 import streamlit as st
 import pandas as pd
 import os
+from datetime import date, timedelta
 
 st.set_page_config(page_title="Plan Rehberim", layout="centered")
 st.title("📅 Günlük Plan Notlarım")
+
+def bu_haftanin_pazartesisi():
+    bugun = date.today()
+    pazartesi = bugun - timedelta(days=bugun.weekday())
+    return pazartesi.strftime('%d.%m.%Y')
 
 @st.cache_data(ttl=1)
 def veri_yukle():
@@ -15,12 +21,11 @@ def veri_yukle():
         return None
 
     try:
-        # Birleştirilmiş hücreleri doldurmak için openpyxl kullan
         import openpyxl
         wb = openpyxl.load_workbook(dosya_yolu)
         ws = wb.active
 
-        # Birleştirilmiş hücre aralıklarını önce düz hücrelere dönüştür
+        # Birleştirilmiş hücreleri düzleştir
         merged_ranges = list(ws.merged_cells.ranges)
         for merged in merged_ranges:
             min_row, min_col, max_row, max_col = merged.min_row, merged.min_col, merged.max_row, merged.max_col
@@ -30,7 +35,6 @@ def veri_yukle():
                 for col in range(min_col, max_col + 1):
                     ws.cell(row, col).value = top_left_value
 
-        # Şimdi pandas ile oku
         data = ws.values
         cols = next(data)
         df = pd.DataFrame(data, columns=cols)
@@ -72,10 +76,26 @@ if df is not None and not df.empty:
         sinif_df = df[df['Sinif'] == secilen_sinif]
         tarih_listesi = sinif_df['Tarih'].tolist()
 
-        st.subheader("📆 Tarih Seçin:")
-        secilen_tarih = st.selectbox("Tarih:", tarih_listesi, label_visibility="collapsed")
+        # Bu haftanın pazartesisini bul, listede varsa otomatik seç
+        bu_hafta = bu_haftanin_pazartesisi()
+        if bu_hafta in tarih_listesi:
+            default_index = tarih_listesi.index(bu_hafta)
+        else:
+            default_index = 0
+
+        st.subheader("📆 Hafta Seçin:")
+        secilen_tarih = st.selectbox(
+            "Hafta:",
+            tarih_listesi,
+            index=default_index,
+            label_visibility="collapsed"
+        )
 
         if secilen_tarih:
+            # Bu haftayı vurgula
+            if secilen_tarih == bu_hafta:
+                st.caption("📍 Bu hafta otomatik seçildi")
+
             eslesme = sinif_df[sinif_df['Tarih'] == secilen_tarih]
             if not eslesme.empty:
                 not_icerigi = eslesme.iloc[0]['Not']
@@ -83,6 +103,6 @@ if df is not None and not df.empty:
                 st.subheader("📌 Notunuz:")
                 st.info(not_icerigi)
             else:
-                st.warning("Seçilen tarihe ait not bulunamadı.")
+                st.warning("Seçilen haftaya ait not bulunamadı.")
 else:
     st.warning("⚠️ Excel verisi okunamadı veya dosya boş.")
