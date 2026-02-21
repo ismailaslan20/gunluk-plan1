@@ -7,26 +7,24 @@ st.title("📅 Günlük Plan Notlarım")
 @st.cache_data
 def veri_yukle():
     try:
-        # Excel'i en ham haliyle oku
-        df = pd.read_excel("plan.xlsx", header=None)
+        # Excel'i her şeyi metin (string) olarak oku ki tarih formatı bozulmasın
+        df = pd.read_excel("plan.xlsx", dtype=str)
         
-        # Tamamen boş satırları ve sütunları temizle
-        df = df.dropna(how='all').dropna(axis=1, how='all')
+        # Sütun isimlerini sabitle
+        df.columns = ['Tarih', 'Not'] + list(df.columns[2:])
         
-        # İlk iki sütunu al, isimleri biz verelim
-        df = df.iloc[:, :2]
-        df.columns = ['Tarih', 'Not']
+        # Başlık satırı tekrar ediyorsa onu çıkar
+        df = df[~df['Tarih'].str.contains("Tarih", case=False, na=False)]
         
-        # Her şeyi metne çevir ve 'nan' (boş) yazanları temizle
-        df = df.astype(str)
-        df = df[df['Tarih'] != 'nan']
+        # Boş satırları temizle
+        df = df.dropna(subset=['Tarih'])
         
-        # Eğer ilk satırda 'Tarih' kelimesi kalmışsa onu çıkar
-        if "tarih" in df.iloc[0, 0].lower():
-            df = df.iloc[1:]
-            
+        # Tarih formatındaki gereksiz '.0' veya saat kısımlarını temizle
+        df['Tarih'] = df['Tarih'].str.replace(' 00:00:00', '', regex=False).str.strip()
+        
         return df
     except Exception as e:
+        st.error(f"Hata: {e}")
         return None
 
 df = veri_yukle()
@@ -34,15 +32,19 @@ df = veri_yukle()
 if df is not None and not df.empty:
     st.write("Bilgi notunu görmek istediğiniz günü seçin:")
     
-    # Tarihleri listele
+    # Excel'deki TÜM benzersiz tarihleri listeye al
     tarih_listesi = df['Tarih'].unique().tolist()
+    
+    # Listede kaç tarih olduğunu kontrol için alta küçük bir not yazalım
+    st.caption(f"Toplam {len(tarih_listesi)} farklı tarih bulundu.")
+    
     secilen_tarih = st.selectbox("Tarih Listesi:", tarih_listesi)
 
     if secilen_tarih:
-        # Seçilen tarihin notunu göster
-        not_icerigi = df[df['Tarih'] == secilen_tarih]['Not'].values[0]
+        # Seçilen tarihin karşısındaki NOTU getir
+        not_icerigi = df[df['Tarih'] == secilen_tarih].iloc[0, 1]
         st.divider()
-        st.subheader(f"📌 Notunuz:")
+        st.subheader(f"📌 {secilen_tarih} Tarihli Not:")
         st.info(not_icerigi)
 else:
-    st.error("Excel verisi hala okunamıyor. Lütfen plan.xlsx dosyasının İLK SAYFASINDA veri olduğundan emin olun.")
+    st.error("Excel dosyasında veri bulunamadı.")
