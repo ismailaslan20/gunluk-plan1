@@ -1,50 +1,45 @@
 import streamlit as st
 import pandas as pd
 
-# Sayfa ayarları
-st.set_page_config(page_title="Yıllık Planım", layout="centered")
+# Sayfa tasarımı
+st.set_page_config(page_title="Plan Rehberim", layout="centered")
 st.title("📅 Günlük Plan Notlarım")
 
 @st.cache_data
 def veri_yukle():
     try:
-        # Excel'i oku (plan.xlsx dosyasını arar)
+        # Excel'i oku
         df = pd.read_excel("plan.xlsx")
         
-        # İlk iki sütunu al ve isimlerini sabitle
+        # İlk iki sütunu al ve isimlerini ne yazarsan yaz kabul et
         df = df.iloc[:, :2]
         df.columns = ['Tarih', 'Not']
         
-        # Boş olan satırları temizle
+        # Boş olan satırları tamamen temizle
         df = df.dropna(subset=['Tarih'])
         
-        # Tarih formatını Excel'den geldiği gibi koru veya güzelleştir
-        df['Tarih_Gosterim'] = pd.to_datetime(df['Tarih'], dayfirst=True, errors='coerce').dt.strftime('%d.%m.%Y')
-        
-        # Eğer tarih dönüşümü başarısız olursa orijinal metni kullan
-        df['Tarih_Gosterim'] = df['Tarih_Gosterim'].fillna(df['Tarih'].astype(str))
+        # Tarih sütununu düz yazıya (metne) çevir (Format hatasını engeller)
+        df['Tarih_Gosterim'] = df['Tarih'].astype(str).str.split(' ').str[0]
         
         return df
     except Exception as e:
-        st.error(f"Dosya okuma hatası: {e}")
         return None
 
 df = veri_yukle()
 
 if df is not None and not df.empty:
-    st.write("Notunu görmek istediğiniz günü seçin:")
+    st.write("Bilgi notunu görmek istediğiniz günü seçin:")
     
-    # Excel'deki TÜM tarihleri listeye koy
-    secenekler = df['Tarih_Gosterim'].unique().tolist()
+    # Tüm tarihleri benzersiz bir liste olarak al
+    tarih_listesi = df['Tarih_Gosterim'].unique().tolist()
     
-    secilen_tarih = st.selectbox("Tarih Listesi:", secenekler)
+    secilen_tarih = st.selectbox("Tarih Seçiniz:", tarih_listesi)
 
     if secilen_tarih:
-        # Seçilen tarihin satırını bul ve Not sütununu getir
-        not_metni = df[df['Tarih_Gosterim'] == secilen_tarih]['Not'].values[0]
-        
+        # Seçilen tarihin karşısındaki notu göster
+        satir = df[df['Tarih_Gosterim'] == secilen_tarih].iloc[0]
         st.divider()
-        st.subheader(f"📌 {secilen_tarih} Tarihli Bilgi:")
-        st.info(not_metni)
+        st.subheader(f"📌 Notunuz:")
+        st.info(satir['Not'])
 else:
-    st.warning("Excel dosyasında veri bulunamadı.")
+    st.error("Excel dosyası okunamadı veya içi boş. Lütfen 'plan.xlsx' dosyasını kontrol edin.")
