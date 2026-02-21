@@ -15,7 +15,26 @@ def veri_yukle():
         return None
 
     try:
-        df = pd.read_excel(dosya_yolu)
+        # Birleştirilmiş hücreleri doldurmak için openpyxl kullan
+        import openpyxl
+        wb = openpyxl.load_workbook(dosya_yolu)
+        ws = wb.active
+
+        # Birleştirilmiş hücre aralıklarını önce düz hücrelere dönüştür
+        merged_ranges = list(ws.merged_cells.ranges)
+        for merged in merged_ranges:
+            min_row, min_col, max_row, max_col = merged.min_row, merged.min_col, merged.max_row, merged.max_col
+            top_left_value = ws.cell(min_row, min_col).value
+            ws.unmerge_cells(str(merged))
+            for row in range(min_row, max_row + 1):
+                for col in range(min_col, max_col + 1):
+                    ws.cell(row, col).value = top_left_value
+
+        # Şimdi pandas ile oku
+        data = ws.values
+        cols = next(data)
+        df = pd.DataFrame(data, columns=cols)
+
         df.columns = ['Sinif', 'Tarih', 'Not'] + [f"Sutun_{i}" for i in range(3, df.shape[1])]
         df = df.dropna(how='all')
         df = df[df['Tarih'].notna()]
@@ -29,7 +48,7 @@ def veri_yukle():
 
         df['Tarih'] = df['Tarih'].apply(tarihe_cevir)
         df['Sinif'] = df['Sinif'].apply(lambda x: str(int(float(str(x)))) if str(x).replace('.','').isdigit() else str(x))
-        df = df[df['Tarih'].str.lower().str.strip() != 'tarih']
+        df = df[df['Tarih'].astype(str).str.lower().str.strip() != 'tarih']
         df['Not'] = df['Not'].fillna('(Not girilmemiş)').astype(str)
         df = df.reset_index(drop=True)
         return df
