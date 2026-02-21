@@ -7,7 +7,10 @@ st.title("📅 Günlük Plan Notlarım")
 
 @st.cache_data(ttl=1)
 def veri_yukle():
-    dosya_yolu = "plan.xlsx"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    dosya_yolu = os.path.join(base_dir, "plan.xlsx")
+
+    st.write(f"Aranan yol: {dosya_yolu}")  # debug için
 
     if not os.path.exists(dosya_yolu):
         st.error("❌ 'plan.xlsx' dosyası bulunamadı. Dosyanın bu script ile aynı klasörde olduğundan emin olun.")
