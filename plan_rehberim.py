@@ -13,7 +13,8 @@ CALISMA_HAFTALAR = [
     "15.06.2026", "22.06.2026",
 ]
 
-SINIFLAR = [5, 6, 7, 8, 9, 10, 11, 12]
+BEDEN_EGITIMI_SINIFLAR = ["5. Sınıf", "9. Sınıf", "10. Sınıf", "11. Sınıf", "12. Sınıf"]
+SPOR_EGITIMI_SINIFLAR  = ["11. Sınıf", "12. Sınıf"]
 
 def aktif_pazartesi():
     bugun = date.today()
@@ -44,59 +45,52 @@ def veri_yukle():
                 df = df[df['Tarih'].isin(CALISMA_HAFTALAR)]
                 return df
             except Exception as e:
-                st.error(f"❌ Hata: {e}")
+                st.error(f"Hata: {e}")
                 import traceback
                 st.code(traceback.format_exc())
-    st.error("❌ 'plan_yeni.xlsx' veya 'plan.xlsx' bulunamadı.")
+    st.error("'plan_yeni.xlsx' veya 'plan.xlsx' bulunamadi.")
     return None
 
 df = veri_yukle()
 
 if df is not None and not df.empty:
-    sinif_secenekleri = [f"{s}. Sınıf" for s in SINIFLAR]
+
+    # 1. Ders Secin
+    st.subheader("📖 Ders Seçin:")
+    secilen_ders = st.selectbox("Ders:", ["Beden Eğitimi", "Spor Eğitimi"], label_visibility="collapsed")
+
+    # 2. Sinif Secin (derse gore)
+    sinif_listesi = BEDEN_EGITIMI_SINIFLAR if secilen_ders == "Beden Eğitimi" else SPOR_EGITIMI_SINIFLAR
     st.subheader("🏫 Sınıf Seçin:")
-    secilen_sinif_label = st.selectbox("Sınıf:", sinif_secenekleri, label_visibility="collapsed")
+    secilen_sinif = st.selectbox("Sınıf:", sinif_listesi, label_visibility="collapsed")
 
-    # 11 ve 12. sınıf için ders tipi seçimi
-    sinif_no = int(secilen_sinif_label.split(".")[0])
-    ders_tipi = None
-    if sinif_no in [11, 12]:
-        st.subheader("📚 Ders Tipi Seçin:")
-        ders_tipi = st.radio("Ders Tipi:", ["Normal Ders", "Seçmeli"], horizontal=True, label_visibility="collapsed")
-
+    # 3. Hafta Secin
     bu_hafta = aktif_pazartesi()
-    if bu_hafta in CALISMA_HAFTALAR:
-        default_index = CALISMA_HAFTALAR.index(bu_hafta)
-    else:
-        default_index = 0
-
+    default_index = CALISMA_HAFTALAR.index(bu_hafta) if bu_hafta in CALISMA_HAFTALAR else 0
     st.subheader("📆 Hafta Seçin:")
-    secilen_tarih = st.selectbox(
-        "Hafta:",
-        CALISMA_HAFTALAR,
-        index=default_index,
-        label_visibility="collapsed"
-    )
+    secilen_tarih = st.selectbox("Hafta:", CALISMA_HAFTALAR, index=default_index, label_visibility="collapsed")
     if secilen_tarih == bu_hafta:
         st.caption("📍 Aktif hafta otomatik seçildi")
 
-    # Sütun adını belirle
-    if sinif_no in [11, 12] and ders_tipi == "Seçmeli":
+    # Excel sutun adini belirle
+    if secilen_ders == "Spor Eğitimi":
+        sinif_no = secilen_sinif.split(".")[0]
         sutun_adi = f"{sinif_no}. Sınıf Seçmeli"
     else:
-        sutun_adi = secilen_sinif_label
+        sutun_adi = secilen_sinif
 
+    # 4. Ogrenme Ciktisi
     satir = df[df['Tarih'] == secilen_tarih]
-
     st.divider()
-    st.subheader("📌 Notunuz:")
+    st.subheader("📌 Öğrenme Çıktısı:")
     if not satir.empty and sutun_adi in satir.columns:
-        not_val = str(satir.iloc[0][sutun_adi]).strip()
-        if not_val and not_val.lower() != 'none' and not_val != '':
-            st.info(not_val)
+        deger = str(satir.iloc[0][sutun_adi]).strip()
+        if deger and deger.lower() != 'none' and deger != '':
+            st.info(deger)
         else:
-            st.info("Bu hafta için henüz not girilmemiş.")
+            st.info("Bu hafta için öğrenme çıktısı girilmemiş.")
     else:
-        st.info("Bu hafta için henüz not girilmemiş.")
+        st.info("Bu hafta için öğrenme çıktısı girilmemiş.")
+
 else:
     st.warning("⚠️ Excel verisi okunamadı veya dosya boş.")
