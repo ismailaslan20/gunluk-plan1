@@ -3,8 +3,8 @@ import pandas as pd
 import os
 from datetime import date, timedelta
 
-st.set_page_config(page_title="Plan Rehberim", layout="centered")
-st.markdown("#### 📅 Günlük Plan Notlarım")
+st.set_page_config(page_title="Öğrenme Çıktısı", layout="centered")
+st.markdown("#### 📌 Öğrenme Çıktısı")
 
 CALISMA_HAFTALAR = [
     "23.02.2026", "02.03.2026", "09.03.2026", "23.03.2026", "30.03.2026",
@@ -83,10 +83,16 @@ if df is not None and not df.empty:
     satir = df[df['Tarih'] == secilen_tarih]
     st.divider()
     st.subheader("📌 Öğrenme Çıktısı:")
+
     if not satir.empty and sutun_adi in satir.columns:
         deger = str(satir.iloc[0][sutun_adi]).strip()
         if deger and deger.lower() != 'none' and deger != '':
-            st.info(deger)
+            st.text_area(
+                label="cikti",
+                value=deger,
+                height=150,
+                label_visibility="collapsed"
+            )
         else:
             st.info("Bu hafta için öğrenme çıktısı girilmemiş.")
     else:
