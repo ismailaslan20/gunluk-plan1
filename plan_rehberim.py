@@ -3,8 +3,8 @@ import pandas as pd
 import os
 from datetime import date, timedelta
 
-st.set_page_config(page_title="Plan Rehberim", layout="centered")
-st.markdown("#### 📅 Günlük Plan Notlarım")
+st.set_page_config(page_title="Öğrenme Çıktıları", layout="centered")
+st.markdown("#### 📅 Öğrenme Çıktıları")
 
 CALISMA_HAFTALAR = [
     "23.02.2026", "02.03.2026", "09.03.2026", "23.03.2026", "30.03.2026",
@@ -27,7 +27,6 @@ def aktif_pazartesi():
 @st.cache_data(ttl=1)
 def veri_yukle():
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    # Önce plan_yeni.xlsx, yoksa plan.xlsx dene
     for dosya_adi in ["plan_yeni.xlsx", "plan.xlsx"]:
         dosya_yolu = os.path.join(base_dir, dosya_adi)
         if os.path.exists(dosya_yolu):
@@ -40,7 +39,6 @@ def veri_yukle():
                     continue
                 cols = data[0]
                 df = pd.DataFrame(data[1:], columns=cols)
-                # Tarih sütunu ilk sütun, sonrası sınıflar
                 df = df.rename(columns={cols[0]: 'Tarih'})
                 df['Tarih'] = df['Tarih'].astype(str).str.strip()
                 df = df[df['Tarih'].isin(CALISMA_HAFTALAR)]
@@ -79,14 +77,14 @@ if df is not None and not df.empty:
 
     satir = df[df['Tarih'] == secilen_tarih]
     st.divider()
-    st.subheader("📌 Notunuz:")
+    st.subheader("📓 Deftere Yazılacak Çıktı:")
     if not satir.empty and secilen_sinif_label in satir.columns:
         not_val = str(satir.iloc[0][secilen_sinif_label]).strip()
         if not_val and not_val.lower() != 'none' and not_val != '':
             st.info(not_val)
         else:
-            st.info("Bu hafta için henüz not girilmemiş.")
+            st.info("Bu hafta için henüz çıktı girilmemiş.")
     else:
-        st.info("Bu hafta için henüz not girilmemiş.")
+        st.info("Bu hafta için henüz çıktı girilmemiş.")
 else:
     st.warning("⚠️ Excel verisi okunamadı veya dosya boş.")
