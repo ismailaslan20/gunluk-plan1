@@ -1,31 +1,19 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta
 
 st.set_page_config(page_title="Plan Rehberim", layout="centered")
 st.markdown("#### 📅 Günlük Plan Notlarım")
 
-# Sabit çalışma haftaları (pazartesi tarihleri, sıralı)
 CALISMA_HAFTALAR = [
-    "23.02.2026",
-    "02.03.2026",
-    "09.03.2026",
-    "23.03.2026",
-    "30.03.2026",
-    "06.04.2026",
-    "13.04.2026",
-    "20.04.2026",
-    "27.04.2026",
-    "04.05.2026",
-    "11.05.2026",
-    "18.05.2026",
-    "25.05.2026",
-    "01.06.2026",
-    "08.06.2026",
-    "15.06.2026",
-    "22.06.2026",
+    "23.02.2026", "02.03.2026", "09.03.2026", "23.03.2026", "30.03.2026",
+    "06.04.2026", "13.04.2026", "20.04.2026", "27.04.2026", "04.05.2026",
+    "11.05.2026", "18.05.2026", "25.05.2026", "01.06.2026", "08.06.2026",
+    "15.06.2026", "22.06.2026",
 ]
+
+SINIFLAR = [5, 6, 7, 8, 9, 10, 11, 12]
 
 def aktif_pazartesi():
     bugun = date.today()
@@ -39,91 +27,66 @@ def aktif_pazartesi():
 @st.cache_data(ttl=1)
 def veri_yukle():
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    dosya_yolu = os.path.join(base_dir, "plan.xlsx")
-    if not os.path.exists(dosya_yolu):
-        st.error("❌ 'plan.xlsx' bulunamadı.")
-        return None
-    try:
-        import openpyxl
-        wb = openpyxl.load_workbook(dosya_yolu)
-        ws = wb.active
-        merged_ranges = list(ws.merged_cells.ranges)
-        for merged in merged_ranges:
-            min_row, min_col, max_row, max_col = merged.min_row, merged.min_col, merged.max_row, merged.max_col
-            top_left_value = ws.cell(min_row, min_col).value
-            ws.unmerge_cells(str(merged))
-            for row in range(min_row, max_row + 1):
-                for col in range(min_col, max_col + 1):
-                    ws.cell(row, col).value = top_left_value
-        data = ws.values
-        cols = next(data)
-        df = pd.DataFrame(data, columns=cols)
-        df.columns = ['Sinif', 'Tarih', 'Not'] + [f"Sutun_{i}" for i in range(3, df.shape[1])]
-        df = df.dropna(how='all')
-        df = df[df['Tarih'].notna()]
-        df = df[df['Sinif'].notna()]
-
-        def tarihe_cevir(t):
+    # Önce plan_yeni.xlsx, yoksa plan.xlsx dene
+    for dosya_adi in ["plan_yeni.xlsx", "plan.xlsx"]:
+        dosya_yolu = os.path.join(base_dir, dosya_adi)
+        if os.path.exists(dosya_yolu):
             try:
-                return pd.to_datetime(t).strftime('%d.%m.%Y')
-            except:
-                return str(t).split(' ')[0].strip()
-
-        df['Tarih'] = df['Tarih'].apply(tarihe_cevir)
-        df['Sinif'] = df['Sinif'].apply(lambda x: str(int(float(str(x)))) if str(x).replace('.','').isdigit() else str(x))
-        df = df[df['Tarih'].astype(str).str.lower().str.strip() != 'tarih']
-        df['Not'] = df['Not'].fillna('').astype(str)
-
-        # Sadece belirlenen çalışma haftalarını göster
-        df = df[df['Tarih'].isin(CALISMA_HAFTALAR)]
-
-        # Tarihe göre sırala
-        df['_sira'] = df['Tarih'].apply(lambda t: CALISMA_HAFTALAR.index(t) if t in CALISMA_HAFTALAR else 999)
-        df = df.sort_values('_sira').drop(columns=['_sira'])
-        df = df.reset_index(drop=True)
-        return df
-    except Exception as e:
-        st.error(f"❌ Hata oluştu: {e}")
-        import traceback
-        st.code(traceback.format_exc())
-        return None
+                import openpyxl
+                wb = openpyxl.load_workbook(dosya_yolu)
+                ws = wb.active
+                data = list(ws.values)
+                if not data:
+                    continue
+                cols = data[0]
+                df = pd.DataFrame(data[1:], columns=cols)
+                # Tarih sütunu ilk sütun, sonrası sınıflar
+                df = df.rename(columns={cols[0]: 'Tarih'})
+                df['Tarih'] = df['Tarih'].astype(str).str.strip()
+                df = df[df['Tarih'].isin(CALISMA_HAFTALAR)]
+                return df
+            except Exception as e:
+                st.error(f"❌ Hata: {e}")
+                import traceback
+                st.code(traceback.format_exc())
+    st.error("❌ 'plan_yeni.xlsx' veya 'plan.xlsx' bulunamadı.")
+    return None
 
 df = veri_yukle()
 
 if df is not None and not df.empty:
-    sinif_listesi = sorted(df['Sinif'].unique().tolist(), key=lambda x: int(x) if x.isdigit() else x)
+    sinif_secenekleri = [f"{s}. Sınıf" for s in SINIFLAR]
+
     st.subheader("🏫 Sınıf Seçin:")
-    secilen_sinif = st.selectbox("Sınıf:", sinif_listesi, label_visibility="collapsed")
+    secilen_sinif_label = st.selectbox("Sınıf:", sinif_secenekleri, label_visibility="collapsed")
 
-    if secilen_sinif:
-        sinif_df = df[df['Sinif'] == secilen_sinif]
-        tarih_listesi = sinif_df['Tarih'].tolist()
-        bu_hafta = aktif_pazartesi()
+    bu_hafta = aktif_pazartesi()
+    if bu_hafta in CALISMA_HAFTALAR:
+        default_index = CALISMA_HAFTALAR.index(bu_hafta)
+    else:
+        default_index = 0
 
-        if bu_hafta in tarih_listesi:
-            default_index = tarih_listesi.index(bu_hafta)
+    st.subheader("📆 Hafta Seçin:")
+    secilen_tarih = st.selectbox(
+        "Hafta:",
+        CALISMA_HAFTALAR,
+        index=default_index,
+        label_visibility="collapsed"
+    )
+
+    if secilen_tarih == bu_hafta:
+        st.caption("📍 Aktif hafta otomatik seçildi")
+
+    satir = df[df['Tarih'] == secilen_tarih]
+    st.divider()
+    st.subheader("📌 Notunuz:")
+    if not satir.empty and secilen_sinif_label in satir.columns:
+        not_val = str(satir.iloc[0][secilen_sinif_label]).strip()
+        if not_val and not_val.lower() != 'none' and not_val != '':
+            st.info(not_val)
         else:
-            default_index = 0
-
-        st.subheader("📆 Hafta Seçin:")
-        secilen_tarih = st.selectbox(
-            "Hafta:",
-            tarih_listesi,
-            index=default_index,
-            label_visibility="collapsed"
-        )
-
-        if secilen_tarih:
-            if secilen_tarih == bu_hafta:
-                st.caption("📍 Aktif hafta otomatik seçildi")
-
-            eslesme = sinif_df[sinif_df['Tarih'] == secilen_tarih]
-            if not eslesme.empty:
-                not_icerigi = eslesme.iloc[0]['Not']
-                st.divider()
-                st.subheader("📌 Notunuz:")
-                st.info(not_icerigi)
-            else:
-                st.warning("Seçilen haftaya ait not bulunamadı.")
+            st.info("Bu hafta için henüz not girilmemiş.")
+    else:
+        st.info("Bu hafta için henüz not girilmemiş.")
 else:
     st.warning("⚠️ Excel verisi okunamadı veya dosya boş.")
