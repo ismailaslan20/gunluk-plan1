@@ -3,8 +3,8 @@ import pandas as pd
 import os
 from datetime import date, timedelta
 
-st.set_page_config(page_title="Öğrenme Çıktıları", layout="centered")
-st.markdown("#### 📅 Öğrenme Çıktıları")
+st.set_page_config(page_title="Plan Rehberim", layout="centered")
+st.markdown("#### 📅 Günlük Plan Notlarım")
 
 CALISMA_HAFTALAR = [
     "23.02.2026", "02.03.2026", "09.03.2026", "23.03.2026", "30.03.2026",
@@ -54,9 +54,15 @@ df = veri_yukle()
 
 if df is not None and not df.empty:
     sinif_secenekleri = [f"{s}. Sınıf" for s in SINIFLAR]
-
     st.subheader("🏫 Sınıf Seçin:")
     secilen_sinif_label = st.selectbox("Sınıf:", sinif_secenekleri, label_visibility="collapsed")
+
+    # 11 ve 12. sınıf için ders tipi seçimi
+    sinif_no = int(secilen_sinif_label.split(".")[0])
+    ders_tipi = None
+    if sinif_no in [11, 12]:
+        st.subheader("📚 Ders Tipi Seçin:")
+        ders_tipi = st.radio("Ders Tipi:", ["Normal Ders", "Seçmeli"], horizontal=True, label_visibility="collapsed")
 
     bu_hafta = aktif_pazartesi()
     if bu_hafta in CALISMA_HAFTALAR:
@@ -71,20 +77,26 @@ if df is not None and not df.empty:
         index=default_index,
         label_visibility="collapsed"
     )
-
     if secilen_tarih == bu_hafta:
         st.caption("📍 Aktif hafta otomatik seçildi")
 
+    # Sütun adını belirle
+    if sinif_no in [11, 12] and ders_tipi == "Seçmeli":
+        sutun_adi = f"{sinif_no}. Sınıf Seçmeli"
+    else:
+        sutun_adi = secilen_sinif_label
+
     satir = df[df['Tarih'] == secilen_tarih]
+
     st.divider()
-    st.subheader("📓 Deftere Yazılacak Çıktı:")
-    if not satir.empty and secilen_sinif_label in satir.columns:
-        not_val = str(satir.iloc[0][secilen_sinif_label]).strip()
+    st.subheader("📌 Notunuz:")
+    if not satir.empty and sutun_adi in satir.columns:
+        not_val = str(satir.iloc[0][sutun_adi]).strip()
         if not_val and not_val.lower() != 'none' and not_val != '':
             st.info(not_val)
         else:
-            st.info("Bu hafta için henüz çıktı girilmemiş.")
+            st.info("Bu hafta için henüz not girilmemiş.")
     else:
-        st.info("Bu hafta için henüz çıktı girilmemiş.")
+        st.info("Bu hafta için henüz not girilmemiş.")
 else:
     st.warning("⚠️ Excel verisi okunamadı veya dosya boş.")
