@@ -6,16 +6,33 @@ from datetime import date, timedelta, datetime
 st.set_page_config(page_title="Plan Rehberim", layout="centered")
 st.markdown("#### 📅 Günlük Plan Notlarım")
 
-# Tarih sınırları
-BASLANGIC = datetime(2026, 2, 23).date()
-BITIS = datetime(2026, 6, 22).date()
+# Sabit çalışma haftaları (pazartesi tarihleri, sıralı)
+CALISMA_HAFTALAR = [
+    "23.02.2026",
+    "02.03.2026",
+    "09.03.2026",
+    "23.03.2026",
+    "30.03.2026",
+    "06.04.2026",
+    "13.04.2026",
+    "20.04.2026",
+    "27.04.2026",
+    "04.05.2026",
+    "11.05.2026",
+    "18.05.2026",
+    "25.05.2026",
+    "01.06.2026",
+    "08.06.2026",
+    "15.06.2026",
+    "22.06.2026",
+]
 
 def aktif_pazartesi():
     bugun = date.today()
-    hafta_gunu = bugun.weekday()  # 0=Pazartesi, 5=Cumartesi, 6=Pazar
-    if hafta_gunu >= 5:  # Hafta sonu ise bir sonraki pazartesi
+    hafta_gunu = bugun.weekday()
+    if hafta_gunu >= 5:
         pazartesi = bugun + timedelta(days=(7 - hafta_gunu))
-    else:  # Hafta içi ise bu haftanın pazartesisi
+    else:
         pazartesi = bugun - timedelta(days=hafta_gunu)
     return pazartesi.strftime('%d.%m.%Y')
 
@@ -57,18 +74,12 @@ def veri_yukle():
         df = df[df['Tarih'].astype(str).str.lower().str.strip() != 'tarih']
         df['Not'] = df['Not'].fillna('').astype(str)
 
-        # Tarih aralığı filtresi: sadece 23.02.2026 - 22.06.2026 arası
-        def tarih_parse(t):
-            try:
-                return datetime.strptime(t, '%d.%m.%Y').date()
-            except:
-                return None
+        # Sadece belirlenen çalışma haftalarını göster
+        df = df[df['Tarih'].isin(CALISMA_HAFTALAR)]
 
-        df['_tarih_obj'] = df['Tarih'].apply(tarih_parse)
-        df = df[df['_tarih_obj'].notna()]
-        df = df[(df['_tarih_obj'] >= BASLANGIC) & (df['_tarih_obj'] <= BITIS)]
-        df = df.drop(columns=['_tarih_obj'])
-
+        # Tarihe göre sırala
+        df['_sira'] = df['Tarih'].apply(lambda t: CALISMA_HAFTALAR.index(t) if t in CALISMA_HAFTALAR else 999)
+        df = df.sort_values('_sira').drop(columns=['_sira'])
         df = df.reset_index(drop=True)
         return df
     except Exception as e:
