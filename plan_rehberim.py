@@ -1,10 +1,14 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 st.set_page_config(page_title="Plan Rehberim", layout="centered")
 st.markdown("#### 📅 Günlük Plan Notlarım")
+
+# Tarih sınırları
+BASLANGIC = datetime(2026, 2, 23).date()
+BITIS = datetime(2026, 6, 22).date()
 
 def aktif_pazartesi():
     bugun = date.today()
@@ -19,16 +23,13 @@ def aktif_pazartesi():
 def veri_yukle():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     dosya_yolu = os.path.join(base_dir, "plan.xlsx")
-
     if not os.path.exists(dosya_yolu):
         st.error("❌ 'plan.xlsx' bulunamadı.")
         return None
-
     try:
         import openpyxl
         wb = openpyxl.load_workbook(dosya_yolu)
         ws = wb.active
-
         merged_ranges = list(ws.merged_cells.ranges)
         for merged in merged_ranges:
             min_row, min_col, max_row, max_col = merged.min_row, merged.min_col, merged.max_row, merged.max_col
@@ -37,11 +38,9 @@ def veri_yukle():
             for row in range(min_row, max_row + 1):
                 for col in range(min_col, max_col + 1):
                     ws.cell(row, col).value = top_left_value
-
         data = ws.values
         cols = next(data)
         df = pd.DataFrame(data, columns=cols)
-
         df.columns = ['Sinif', 'Tarih', 'Not'] + [f"Sutun_{i}" for i in range(3, df.shape[1])]
         df = df.dropna(how='all')
         df = df[df['Tarih'].notna()]
@@ -57,29 +56,39 @@ def veri_yukle():
         df['Sinif'] = df['Sinif'].apply(lambda x: str(int(float(str(x)))) if str(x).replace('.','').isdigit() else str(x))
         df = df[df['Tarih'].astype(str).str.lower().str.strip() != 'tarih']
         df['Not'] = df['Not'].fillna('').astype(str)
+
+        # Tarih aralığı filtresi: sadece 23.02.2026 - 22.06.2026 arası
+        def tarih_parse(t):
+            try:
+                return datetime.strptime(t, '%d.%m.%Y').date()
+            except:
+                return None
+
+        df['_tarih_obj'] = df['Tarih'].apply(tarih_parse)
+        df = df[df['_tarih_obj'].notna()]
+        df = df[(df['_tarih_obj'] >= BASLANGIC) & (df['_tarih_obj'] <= BITIS)]
+        df = df.drop(columns=['_tarih_obj'])
+
         df = df.reset_index(drop=True)
         return df
-
     except Exception as e:
         st.error(f"❌ Hata oluştu: {e}")
         import traceback
         st.code(traceback.format_exc())
         return None
 
-
 df = veri_yukle()
 
 if df is not None and not df.empty:
     sinif_listesi = sorted(df['Sinif'].unique().tolist(), key=lambda x: int(x) if x.isdigit() else x)
-
     st.subheader("🏫 Sınıf Seçin:")
     secilen_sinif = st.selectbox("Sınıf:", sinif_listesi, label_visibility="collapsed")
 
     if secilen_sinif:
         sinif_df = df[df['Sinif'] == secilen_sinif]
         tarih_listesi = sinif_df['Tarih'].tolist()
-
         bu_hafta = aktif_pazartesi()
+
         if bu_hafta in tarih_listesi:
             default_index = tarih_listesi.index(bu_hafta)
         else:
